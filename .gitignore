@@ -1,3 +1,6 @@
+# VIM cruft
+*.swp
+
 # Object files
 *.o
 *.ko
