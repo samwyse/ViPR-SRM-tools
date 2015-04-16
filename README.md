@@ -36,5 +36,5 @@ Or, perhaps you want to restart the tomcat service on all of the frontend server
 You get the idea.
 
 # To Do
-[ ] Create a real installer.
-[ ] Create a PDF version of "How to Set Up Putty for Password-Free SSH".
+- [ ] Create a real installer.
+- [ ] Create a PDF version of "How to Set Up Putty for Password-Free SSH".
