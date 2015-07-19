@@ -1,7 +1,9 @@
 # VIM cruft
 *.swp
+*~
 
 # Object files
+*.pyc
 *.o
 *.ko
 *.obj
