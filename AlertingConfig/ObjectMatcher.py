@@ -4,17 +4,18 @@
 Simplifies matching objects.
 
 TODO:
-Add a way to validate the absence of a key from a mapping object.
-Add Var(str [, match=ANY]) to build a mapping of objects found during matching.
+Instead of False or True, return None or a match object, similar to re.
+Add Group(key [, match=ANY]) to build a mapping of objects found during matching.
 '''
 
 # Insure maximum compatibility between Python 2.6+ and 3.x
 from __future__ import unicode_literals, print_function, absolute_import, division, generators, nested_scopes, with_statement
 
+# For when __future__ isn't enough... (Not quite willing to import six.)
 import sys
 PY3 = sys.version_info[0] == 3
 
-from functools import partial
+# helper objects
 
 class _Exec(object):
     """Generate and execure code."""
@@ -27,6 +28,8 @@ class _Exec(object):
             print(object)
         exec object in globals()
 
+# The base from which all other objects will be derived.
+
 class ObjectMatcher(object):
     """Base class of all object matchers."""
     def __repr__(self, _repr_running={}):
@@ -35,9 +38,24 @@ class ObjectMatcher(object):
     def __call__(self, other):
         """Virtual method, implemented in subclasses."""
         raise NotImplementedError()
+    @staticmethod
+    def compile(validator,
+                 _sequence_types = (list, tuple, range) if PY3 else (list, tuple),
+                 _mapping_types = (dict)
+                 ):
+        """Force a validator to be an ObjectMatcher.
+This is a bit of a cheat, since it has various subclasses hard-coded into it."""
+        if isinstance(validator, ObjectMatcher):
+            return validator
+        if isinstance(validator, _sequence_types):
+            return SequenceMatcher(validator)
+        if isinstance(validator, _mapping_types):
+            return MappingMatcher(validator)
+        return Eq(validator)
 
 class Exists(ObjectMatcher):
     """Confirm that an object exists.
+This is mostly useful with MappingMatcher, to confirm a key is present.
 
 >>> IsExtant = Exists()
 
@@ -52,6 +70,7 @@ True
 
 class Missing(ObjectMatcher):
     """Confirm that an object does not exist.
+This is mostly useful with MappingMatcher, to confirm a key is missing.
 
 >>> IsAbsent = Missing()
 
@@ -65,7 +84,7 @@ False
         return False
 
 class IsNone(ObjectMatcher):
-    """Confirm that an object represents a null validate.
+    """Confirm that an object is None.
 
 >>> NONE = IsNone()
 
@@ -82,7 +101,7 @@ False
         return other is None
 
 class Truth(ObjectMatcher):
-    """Confirm that an object represents a true validate.
+    """Confirm that an object represents a true value.
 
 >>> TRUE = Truth()
 
@@ -107,6 +126,13 @@ class BinaryMatcher(ObjectMatcher):
         """obj.__repr__() <==> repr(obj)"""
         return '%s(%r)' % (self.__class__.__name__, self.validate)
 
+class Passes(BinaryMatcher):
+    """Confirms validation via an arbitrary predicate.
+(All other binary matchers could be considered optimizations of this one.)
+"""
+    def __call__(self, other):
+        return self.validate(other)
+
 class In(BinaryMatcher):
     """comfirms presence in a container.
 
@@ -122,6 +148,19 @@ False
 
 >>> SmallPrime(11)
 True
+
+>>> IsVowel = In('aeiou')
+
+>>> IsVowel
+In(u'aeiou')
+
+In('aeiou')
+
+>>> IsVowel('a')
+True
+
+>>> IsVowel('z')
+False
 """
     def __call__(self, other):
         return other in self.validate
@@ -170,31 +209,11 @@ class {name}(BinaryMatcher):
         return {predicate}(other, self.validate)
 '''
 
-class Passes(BinaryMatcher):
-    """Confirms validation via an arbitrary predicate.
-"""
-    def __call__(self, other):
-        return self.validate(other)
-
 # The actual comparisons
 _predicates = [
     {'name': _p, 'predicate': _p.lower()}
     for _p in ('All', 'Any', 'Callable', 'IsInstance', 'IsSubclass')
     ]
-
-
-def _compile(validator,
-             _sequence_types = (list, tuple, range) if PY3 else (list, tuple),
-             _mapping_types = (dict)
-             ):
-    """Force a validator to be an ObjectMatcher"""
-    if isinstance(validator, ObjectMatcher):
-        return validator
-    if isinstance(validator, _sequence_types):
-        return SequenceMatcher(validator)
-    if isinstance(validator, _mapping_types):
-        return MappingMatcher(validator)
-    return Eq(validator)
 
 class SequenceMatcher(BinaryMatcher):
     """Confirm a possibly-nested container matches a pattern.
@@ -214,7 +233,7 @@ False
 
 """
     def __init__(self, validate):
-        self.validate = tuple( _compile(v) for v in validate )
+        self.validate = tuple( self.compile(v) for v in validate )
     def __call__(self, other):
         if len(self.validate) != len(other):
             return False
@@ -273,11 +292,8 @@ False
         except (IndexError, AttributeError):
             pass
         from itertools import chain
-        self.validate = {}
-        for key, validate in chain(args, kwds.items()):
-            if not isinstance(validate, ObjectMatcher):
-                validate = Eq(validate)
-            self.validate[key] = validate
+        self.validate = dict((key, self.compile(value))
+                             for key, value in chain(args, kwds.items()))
     def __call__(self, other):
         for key, validate in self.validate.items():
             try:
@@ -289,7 +305,15 @@ False
                 return False
         return True
 
-# If writing a module...
+__all__ = []
+_g = globals().copy()
+for _name in _g:
+    try:
+        if issubclass(_g[_name], ObjectMatcher):
+            __all__.append(_name)
+    except TypeError:
+        pass
+    
 if __name__ == "__main__":
     import doctest
     doctest.testmod()
