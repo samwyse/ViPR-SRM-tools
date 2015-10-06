@@ -12,7 +12,7 @@ from itertools import groupby
 from operator import attrgetter
 
 __all__ = [
-    'AlertingConfig', 'getChildren', 'getText', 'walkDefinition',
+    'AlertingConfig', 'getChildren', 'getText', 'showMe', 'walkDefinition',
     'DataCounterOperation', 'MailAction', 'SNMPTrapAction'
     ]
 
@@ -33,10 +33,24 @@ def getText(node):
             rc.append(child.data)
     return ''.join(rc)
 
+def getValue(node, tagName):
+    rc = []
+    for child in getChildren(node, lambda n: n.tagName == tagName):
+        rc.append(getText(child))
+    return ''.join(rc)
+
+def showMe(node, indent=0):
+    template = '  ' * indent + '{} = {}'
+    for tagName in 'name', 'class', 'description':
+        print(template.format(tagName, getValue(node, tagName)))
+
 def walkDefinition(definition, predicate):
     """Walks a definition, looking for the first node that satisfies the
 predicate. If found, returns that node."""
     assert definition.tagName == 'definition-list'
+    showMe(definition, 1)
+
+    # Normalize the predicate to accept one or two arguments.
     if hasattr(predicate, '__call__'):
         predicate = predicate.__call__
     try:
@@ -45,6 +59,7 @@ predicate. If found, returns that node."""
         predicate_1 = predicate
     if predicate_1:
         predicate = lambda node, parent: predicate_1(node)
+        
     getById = definition.ownerDocument.getElementById
     seen = set()
 
@@ -69,6 +84,7 @@ operations."""
 
     for entry_point in definition.getElementsByTagName('entry-point-list'):
         element = getById(getText(entry_point))
+        showMe(element, 2)
         if element not in seen:
             seen.add(element)
             result = predicate(element, definition) or helper(element)
@@ -226,6 +242,13 @@ if __name__ == "__main__":
     </action-list>
 </AlertingConfig>""")
     ac.mk_toc()
+
+    fc = ac.doc.firstChild.firstChild
+    while fc.nodeType != fc.ELEMENT_NODE:
+        fc = fc.nextSibling
+    for tag in ac.allowed_subelements:
+        print(tag, fc, 'to', ac.refChild[tag])
+        fc = ac.refChild[tag]
 
     my_entry = ac.doc.getElementById("my-entry-point")
     assert(my_entry)

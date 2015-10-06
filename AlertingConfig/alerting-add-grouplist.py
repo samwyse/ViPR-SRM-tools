@@ -47,101 +47,88 @@ def add_new_nodes(args, ac, origin, action_id, action, source):
     """add a condition node of type 'counter' and two action nodes of type 'email'"""
 
     new_name = getText(next(
-        getChildren(action,
-                    lambda node: node.tagName == 'name')
-        )).replace('trap', 'counter')
+        getChildren(
+            action,
+            lambda node: node.tagName == 'name')
+        )).replace('trap', 'action')
 
-    children = getChildren(action,
-                           lambda node: node.tagName == 'description')
+    children = list(
+        getChildren(
+            action,
+            lambda node: node.tagName == 'description')
+        )
     print(children)
-    new_descr = getText(next(children)).replace('trap', 'counter')
+    new_descr = getText(children[0]).replace('trap', 'action')
+    print('new_descr', new_descr)
 
-    counter_node = ac.create_node(
+    new_node = ac.create_node(
         tag='operation-list',
-        id=action_id + '-counter',
+        id=action_id + '-grouplist',
         components=(
             ('name', None, new_name),
             ('class', None, args.NewOperation),
-            ('description', None, new_descr),
-            ('param-list', 'time-range', args.time_range),
-            ('param-list', 'counter', args.counter),
-            ('param-list', 'time-based', args.time_based),
+            ('description', None, "Always send an email, also send a trap if the severity is high enough."),
             )
         )
+    ac.add_link(origin, new_node, 'output', 'entry')
 
-    ac.add_link(origin, counter_node, 'output', 'entry')
+##    counter_node = ac.create_node(
+##        tag='operation-list',
+##        id=action_id + '-counter',
+##        components=(
+##            ('name', None, new_name),
+##            ('class', None, args.NewOperation),
+##            ('description', None, new_descr),
+##            ('param-list', 'time-range', args.time_range),
+##            ('param-list', 'counter', args.counter),
+##            ('param-list', 'time-based', args.time_based),
+##            )
+##        )
+##    ac.add_link(origin, counter_node, 'output', 'entry')
 
-    new_name = getText(next(
-        getChildren(action,
-                    lambda node: node.tagName == 'name')
-        )).replace('trap', 'email')
+##    new_name = getText(next(
+##        getChildren(action,
+##                    lambda node: node.tagName == 'name')
+##        )).replace('trap', 'action')
+##    new_descr = getText(next(
+##        getChildren(action,
+##                    lambda node: node.tagName == 'description')
+##        )).replace('trap', 'action')
+##    email_node = ac.create_node(
+##        tag='action-list',
+##        id=action_id + '-email-2',
+##        components=(
+##            ('name', None, new_name),
+##            ('class', None, args.NewAction),
+##            ('description', None, new_descr),
+##            ('param-list', 'to', args),
+##            ('param-list', 'subject', args.subject),
+##            ('param-list', 'message', args.message+'\n'+source),
+##            )
+##        )
+##    ac.add_link(counter_node, email_node, 'false', 'entry')
 
-    new_descr = getText(next(
-        getChildren(action,
-                    lambda node: node.tagName == 'description')
-        )).replace('trap', 'email')
-
-    email_node = ac.create_node(
-        tag='action-list',
-        id=action_id + '-email-2',
-        components=(
-            ('name', None, new_name),
-            ('class', None, args.NewAction),
-            ('description', None, new_descr),
-            ('param-list', 'to', args.to),
-            ('param-list', 'subject', args.subject),
-            ('param-list', 'message', args.message+'\n'+source),
-            )
-        )
-
-    ac.add_link(counter_node, email_node, 'false', 'entry')
-
-    email_node = ac.create_node(
-        tag='action-list',
-        id=action_id + '-email-1',
-        components=(
-            ('name', None, new_name),
-            ('class', None, args.NewAction),
-            ('description', None, new_descr),
-            ('param-list', 'to', args.to),
-            ('param-list', 'subject', args.subject+'.'),
-            ('param-list', 'message', args.message+'\n'+source),
-            )
-        )
-
-    ac.add_link(counter_node, email_node, 'true', 'entry')
+##    email_node = ac.create_node(
+##        tag='action-list',
+##        id=action_id + '-email-1',
+##        components=(
+##            ('name', None, new_name),
+##            ('class', None, args.NewAction),
+##            ('description', None, new_descr),
+##            ('param-list', 'to', args.to),
+##            ('param-list', 'subject', args.subject+'.'),
+##            ('param-list', 'message', args.message+'\n'+source),
+##            )
+##        )
+##
+##    ac.add_link(counter_node, email_node, 'true', 'entry')
 
 def is_wanted(node):
 ##    return node.getAttribute('enabled') == 'true'
 ##    return node.getAttribute('enabled') == 'true' and not walkDefinition(node, hasMailAction)
     return node.getAttribute('name') == 'EMC M&R Health/Component Availability'
 
-def process(args):
-    # load the document
-    ac = AlertingConfig.parse(args.alerting)
-
-    # see what we've got
-    top_nodes = defaultdict(list)
-    index = dict()
-    for node in ac.root.childNodes:
-        if node.nodeType == node.ELEMENT_NODE:
-            top_nodes[node.tagName].append(node)
-            id = node.getAttribute('id')
-            if id:
-                index[id] = node
-    legit = 'adapter-list definition-list entry-point-list operation-list action-list grouped-box-list component-template-list'.split() 
-    for key in legit:
-        print(key, len(top_nodes[key]))
-    print()
-
-    root = ac.root
-    dl = top_nodes['definition-list']
-    for node in dl[:]:
-        name = node.getAttribute('name')
-        if name.endswith('email)'):
-            root.removeChild(node)
-            dl.remove(node)
-
+def check_for_orphan_nodes(top_nodes):
     def helper(node_list, tag_name, recursive=False):
         marked = set()
         for node in node_list:
@@ -199,16 +186,19 @@ def process(args):
     lint(live_actions, 'action-list')
 
     # Write the new alert definitions.
-    with open('alerting-lint.xml', 'w') as writer:
+    with open(args.output, 'w') as writer:
+        print('writing', args.output)
         ac.writexml(writer)
     return
 
+def remove_unwanted_nodes(ac):
     # Find all definitions that meet our criteria.
     wanted, unwanted = set(), set()
     # TODO: Use the toc?
     for node in ac.findChildren(lambda node: node.tagName == 'definition-list'):
-        (wanted if is_wanted(node) else unwanted).add(node)
-        node.setAttribute('enabled', 'false')
+        wanted.add(node)
+##        (wanted if is_wanted(node) else unwanted).add(node)
+##        node.setAttribute('enabled', 'false')
     print('keeping', len(wanted), 'of', len(wanted) + len(unwanted), 'definitions')
     if not wanted:
         return
@@ -238,8 +228,38 @@ def process(args):
             previous.unlink()
     print('removed', len(unwanted) + len(discard), 'nodes')
 
-    with open('alerting-small.xml', 'w') as writer:
-        ac.writexml(writer)
+
+def process(args):
+    # load the document
+    ac = AlertingConfig.parse(args.input)
+
+    # see what we've got
+    top_nodes = defaultdict(list)
+    index = dict()
+    for node in ac.root.childNodes:
+        if node.nodeType == node.ELEMENT_NODE:
+            top_nodes[node.tagName].append(node)
+            id = node.getAttribute('id')
+            if id:
+                index[id] = node
+    legit = [
+        'adapter-list', 'definition-list', 'entry-point-list',
+        'operation-list', 'action-list', 'grouped-box-list',
+        'component-template-list']
+    fmt = '{:23} {:5}'
+    print(fmt.format('TAG', 'COUNT'))
+    for key in legit:
+        print(fmt.format(key, len(top_nodes[key])))
+    print()
+
+    root = ac.root
+    dl = top_nodes['definition-list']
+    for node in dl[:]:
+        name = node.getAttribute('name')
+        if name.endswith('email)'):
+            root.removeChild(node)
+            dl.remove(node)
+    remove_unwanted_nodes(ac)
     ac.mk_toc()
 
     class do_stuff(object):
@@ -249,16 +269,17 @@ def process(args):
             print('>>>', node, 'from', parent)
             for child in node.childNodes:
                 if child.nodeType == child.ELEMENT_NODE and child.tagName == 'class' and getText(child) == args.OldAction:
-                    print('ac', ac)
-                    print('parent', parent)
-                    print('action_id', node.getAttribute('id'))
-                    print('action', node)
-                    print('new_name', self.new_name)
+                    print('    ac', ac)
+                    print('    parent', parent)
+                    print('    action_id', node.getAttribute('id'))
+                    print('    action', node)
+                    print('    new_name', self.new_name)
                     add_new_nodes(args, ac, parent, node.getAttribute('id'), node, new_name)
 
     # Duplicate all SNMP Trap actions as Mail actions.
     changed_definitions = PathsToTree()
-    for node in wanted:
+    # TODO: Use the toc?
+    for node in ac.findChildren(lambda node: node.tagName == 'definition-list'):
         print('node', node)
         changed_definitions.add(node)
 
@@ -281,7 +302,8 @@ def process(args):
 ##                    add_new_nodes(args, ac, ep, action_id, action, new_name)
 
     # Write the new alert definitions.
-    with open('alerting-email.xml', 'w') as writer:
+    with open(args.output, 'w') as writer:
+        print('writing', args.output)
         ac.writexml(writer)
 
     changed_definitions.print()
@@ -293,7 +315,7 @@ def main(argv=None):
 
 """
 
-    import argparse
+    import argparse, datetime, os.path
 
     class UpdateAction(argparse.Action):
         from copy import copy as _copy
@@ -343,7 +365,7 @@ def main(argv=None):
     key_eq_value = lambda s: s.split('=', 1)
 
     parser = argparse.ArgumentParser(
-        description='Process some integers.',
+        description='Make many changes to an alerting configuration file.',
 ##        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         )
 
@@ -356,7 +378,7 @@ def main(argv=None):
                         default=None,
                         help='Where to write the output.  Default: the input file name, with "-new" appended.')
     parser.add_argument('--suffix', metavar='STRING',
-                        default="(new)",
+                        default="(" + datetime.datetime.now().isoformat()[:10] + ")",
                         help='A suffix to add to definition names, to not conflict with existing names.\n(Default: %(default)r)')
 
 ##    group1 = parser.add_argument_group('Email related settings', 'Settings used for sending emails.  Note that "--to" is a required argument.')
@@ -400,11 +422,13 @@ def main(argv=None):
     group3.add_argument('--NewOperation', metavar='CLASS_NAME',
                         default='1443211023196',
                         help='The operation to add to the XML file')
-    parser.add_argument('alerting', metavar='FILENAME',
-                        nargs='?', type=argparse.FileType('r'), default='alerting-full.xml',
-                        help='$APG_HOME/Backends/Alerting-Backend/Default/conf/alerting.xml\nor an exported SRM alert definition xml file.\n(Default: %(default)r)')
+    parser.add_argument('input', metavar='FILENAME',
+                        nargs='?', type=argparse.FileType('r'), default='alerting.xml',
+                        help='An SRM alert definition xml file.\n(Default: %(default)r)')
 
     args = parser.parse_args(argv)
+    if args.output is None:
+        args.output = '-new'.join(os.path.splitext(args.input.name))
 ##    if args.test:
 ##        import doctest
 ##        doctest.testmod()
@@ -413,4 +437,4 @@ def main(argv=None):
 
 # If writing a program...
 if __name__ == "__main__":
-    sys.exit(main('--to sam.denton@emc.com'.split()))
+    sys.exit(main('alerting-amfam.xml'.split()))
