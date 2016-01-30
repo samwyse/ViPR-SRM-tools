@@ -1,0 +1,30 @@
+article h1 {
+  font-size: 200%;
+  color: white;
+  background-color: navy;
+}
+
+table { 
+  table-layout: fixed;
+  width: 100%;
+  margin-left: 2em;
+  margin-right: 2em;
+  }
+th {
+  text-align: left;
+  }
+td {
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  }
+.indent {
+  width: 50%;
+  margin-left: 2em;
+  margin-right: -2em;
+}
+.dialog {
+  border: solid black;
+  border-radius: 6px 6px 6px 6px;
+}

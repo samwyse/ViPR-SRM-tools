@@ -1,0 +1,15 @@
+nav {
+  display: none;
+}
+article {
+  overflow: hidden;
+  width: 100%;
+}
+h1 {
+  page-break-before: always;
+  break-before: always;
+}
+h1:first-child {
+  page-break-before: avoid;
+  break-before: avoid;
+}

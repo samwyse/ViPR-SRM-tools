@@ -1,0 +1,16 @@
+# http://yasermartinez.com/blog/posts/creating-super-small-docker-images.html
+
+FROM elyase/pyrun:3.4
+
+#RUN apk update
+#RUN apk add graphviz 
+RUN opkg-install graphviz
+
+#RUN pip3 install --upgrade pip
+RUN pip3 install graphviz
+
+#ADD src .
+
+#EXPOSE 80
+
+#CMD [ "python3", "report.py", "--wsgi" ]
