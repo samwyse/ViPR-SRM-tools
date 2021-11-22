@@ -9,7 +9,7 @@ they could be re-written as Powershell to use PuTTY, and handle both Windows and
 The `mk-servers.sh` script assumes that the `servers.sh` script is installed in $HOME/bin, i.e. /root/bin.
 This is convenient, because (at least on a ViPR SRM appliance) $HOME/bin is already set up as part of your
 path, whether the directory exists or not.  When you run the script, it will try to create $HOME/{bin,etc} 
-nd create links from the supported tags to the `servers.sh` file.  (Yes, that file won't be there if the
+and create links from the supported tags to the `servers.sh` file.  (Yes, that file won't be there if the
 directory was just created.  I plan to fix that later by moving to a seperate installatin script.)
 
 ## Preparation
